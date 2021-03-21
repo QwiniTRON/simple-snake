@@ -1,0 +1,103 @@
+*,
+*::after,
+*::before {
+    box-sizing: border-box;
+}
+
+html,
+body {
+    padding: 0;
+    margin: 0;
+    font-size: 14px;
+}
+
+body {
+    line-height: 1.4;
+    font-family: Arial, Helvetica, sans-serif;
+}
+
+#game {
+    width: 800px;
+    height: 600px;
+    margin: 15px auto;
+    display: block;
+
+    border: 3px solid bisque;
+}
+
+.menu {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    top: 0;
+    background-color: rgba(0, 0, 0, 0.6);
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    padding: 10px 25px;
+
+    overflow: auto;
+}
+
+.menu__content {
+    background-color: #fff;
+    padding: 15px 25px;
+    min-width: 60%;
+}
+
+@media (max-width: 864px) {
+    .menu__content {
+        min-width: 80%;
+    }
+}
+
+.menu__title {
+    text-align: center;
+    font-size: 24px;
+}
+
+.menu__text {
+}
+
+.buttons-group {
+    display: flex;
+    justify-content: space-between;
+}
+.buttons-group--center {
+    justify-content: center;
+}
+
+.menu__buttons {
+    margin-top: 25px;
+}
+
+.button {
+    min-width: 150px;
+    display: inline-block;
+    padding: 10px;
+    background-color: #08f;
+    border-radius: 4px;
+    color: white;
+
+    box-shadow: 0 2px 3px 0 #000;
+    cursor: pointer;
+    text-align: center;
+    transition: box-shadow 0.3s;
+}
+.button:hover {
+    box-shadow: 0 3px 5px 0 #000;
+}
+
+.button--yellow {
+    background-color: #ff3;
+}
+.button--orange {
+    background-color: #f80;
+}
+
+.--center-text {
+    text-align: center;   
+}
