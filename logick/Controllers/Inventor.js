@@ -1,5 +1,7 @@
 import { Controller, Renderer } from "../Abstractions/Abstractions.js";
 import { GameObjectType } from "../Data/Enums.js";
+import { Field } from "../Data/Field.js";
+import { CellPosition } from "../Data/Position.js";
 import { GameState } from '../State/GameStore.js';
 
 export class InventorModel {
@@ -21,17 +23,9 @@ export class InventorModel {
     }
 
     getRandomPlace(field) {
-        const result = [];
+        const places = Field.getClearPlaces(field);
 
-        for (let j = 0; j < field.length; j++) {
-            for (let i = 0; i < field[j].length; i++) {
-                if (field[i][j] == GameObjectType.empty) {
-                    result.push({ x: j, y: i });
-                }
-            }
-        }
-
-        return result[Math.ceil(Math.random() * result.length)];
+        return places[Math.floor(Math.random() * places.length)];
     }
 }
 

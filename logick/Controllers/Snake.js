@@ -8,13 +8,11 @@ import { ScoreIncrease, ScoreItems } from "../Data/Score.js";
 import { SECOND } from '../Data/Time.js';
 import { TransformOperations } from '../Data/Transform.js';
 import { CellPosition } from '../Data/Position.js';
+import { Direction, Directions } from "../Data/Direction.js";
+import { Field } from "../Data/Field.js";
 
-export const SnakeDirections = {
-    top: 0,
-    right: 1,
-    bottom: 2,
-    left: 3,
-}
+export const SnakeDirections = Directions;
+
 
 const DirectionDegrees = new Map([
     [SnakeDirections.top, 90],
@@ -54,60 +52,76 @@ class Snake {
         let lastCellPosition = this.body[0];
         let currentCell = this.body[0]
         let bodyCounter = 1;
-        const nextFieldType = this.getNextCellType(field, currentCell.x, currentCell.y);
+        const nextFieldType = Field.getNextCellType(field, currentCell, this.currentDirection);
 
         // head move
         if (nextFieldType != GameObjectType.wall &&
             nextFieldType != GameObjectType.snake) {
             // clear the cell
-            field[currentCell.y][currentCell.x] = GameObjectType.empty;
+            Field.clearFieldCell(field, currentCell);
 
             lastCellPosition = new CellPosition(currentCell.x, currentCell.y);
 
             if (nextFieldType == GameObjectType.apple) {
                 this.addBody(field);
 
-                let cellsToWin = field.length * field.length;
-                cellsToWin -= (field.length - 2) * 4 + 4;
+                this.chekWin(gameStore, field);
 
-                if (cellsToWin == this.body.length) {
-                    return gameStore.emitNotice(new GameEvent(
-                        StoreEvents.RequestChangeState,
-                        GameState.WinMenu)
-                    );
-                }
-
-                const scoreIncrease = ScoreIncrease.getScoreIncrease(ScoreItems.Apple);
-                gameStore.totalScore += scoreIncrease;
-                gameStore.score += scoreIncrease;
-
-                gameStore.emitNotice(new GameEvent(StoreEvents.changeScore));
+                this.increaseScore(gameStore, ScoreItems.Apple);
             }
 
             this.changePositionByDirection(currentCell);
 
             // mark the field's cell with a cell of the snake
-            field[currentCell.y][currentCell.x] = GameObjectType.snake;
+            Field.markFieldCellSnake(field, currentCell);
         } else {
             // collision happend
-            return gameStore.emitNotice(new GameEvent(
-                StoreEvents.RequestChangeState,
-                GameState.GameOverMenu)
-            );
+            return this.emitGameOver(gameStore);
         }
 
         // body move
         while (bodyCounter < this.body.length) {
             currentCell = this.body[bodyCounter];
 
-            field[currentCell.y][currentCell.x] = GameObjectType.empty;
+            Field.clearFieldCell(field, currentCell);
 
-            this.swapPositions(currentCell, lastCellPosition);
+            CellPosition.swapPositions(currentCell, lastCellPosition);
 
-            field[currentCell.y][currentCell.x] = GameObjectType.snake;
+            Field.markFieldCellSnake(field, currentCell);
 
             bodyCounter++;
         }
+    }
+
+    chekWin(gameStore, field) {
+        let cellsToWin = field.length * field.length;
+        cellsToWin -= (field.length - 2) * 4 + 4;
+
+        if (cellsToWin == this.body.length) {
+            return this.emitWin(gameStore);
+        }
+    }
+
+    emitGameOver(gameStore) {
+        return gameStore.emitNotice(new GameEvent(
+            StoreEvents.RequestChangeState,
+            GameState.GameOverMenu)
+        );
+    }
+
+    emitWin(gameStore) {
+        return gameStore.emitNotice(new GameEvent(
+            StoreEvents.RequestChangeState,
+            GameState.WinMenu)
+        );
+    }
+
+    increaseScore(gameStore, eatenItem) {
+        const scoreIncrease = ScoreIncrease.getScoreIncrease(eatenItem);
+        gameStore.totalScore += scoreIncrease;
+        gameStore.score += scoreIncrease;
+
+        gameStore.emitNotice(new GameEvent(StoreEvents.changeScore));
     }
 
     // add new body piece
@@ -115,72 +129,33 @@ class Snake {
         this.body[this.body.length] = new CellPosition(0, 0);
     }
 
-    swapPositions(cellA, cellB) {
-        // x
-        let tempNumber = cellA.x;
-        cellA.x = cellB.x;
-        cellB.x = tempNumber;
-
-        // y
-        tempNumber = cellA.y;
-        cellA.y = cellB.y;
-        cellB.y = tempNumber;
-    }
-
-    getNextCellType(field, x, y) {
-        return this.performByDirection(
-            () => field[y - 1][x],
-            () => field[y][x + 1],
-            () => field[y + 1][x],
-            () => field[y][x - 1],
-        );
-    }
-
     changePositionByDirection(currentCell) {
-        this.performByDirection(
+        Direction.performByDirection(
             () => currentCell.y--,
             () => currentCell.x++,
             () => currentCell.y++,
             () => currentCell.x--,
+            this.currentDirection
         );
     }
 
     checkCollisionOnReturn(newDirection) {
         if (this.body.length == 1) return false;
 
-        const isOpposite = this.isDirectionOpposite(newDirection);
+        const isOpposite = Direction.isDirectionOpposite(this.currentDirection, newDirection);
 
         if (isOpposite) return isOpposite;
 
         const head = this.body[0];
         const neck = this.body[1];
 
-        return this.performByDirection(
+        return Direction.performByDirection(
             () => neck.y == head.y - 1,
             () => neck.x == head.x + 1,
             () => neck.y == head.y + 1,
             () => neck.x == head.x - 1,
             newDirection
         );
-    }
-
-    performByDirection(topCallback, rightCallback, bottomCallback, leftCallback, direction = this.currentDirection) {
-        switch (direction) {
-            case SnakeDirections.bottom:
-                return bottomCallback();
-            case SnakeDirections.top:
-                return topCallback();
-            case SnakeDirections.left:
-                return leftCallback();
-            case SnakeDirections.right:
-                return rightCallback();
-        }
-    }
-
-    isDirectionOpposite(newDirection) {
-        return Math.abs(
-            DirectionDegrees.get(newDirection) - DirectionDegrees.get(this.currentDirection)
-        ) == 180;
     }
 }
 
@@ -236,6 +211,23 @@ class SnakeRender extends Renderer {
     render(context) {
         const cellSize = this.snake.size;
 
+        this.setSnakeStyle(context);
+
+        for (let i = 0; i < this.snake.body.length; i++) {
+            this.renderSnakeCell(i, context, cellSize);
+        }
+
+        this.renderSnakeEyes(context);
+        context.restore();
+    }
+
+    renderSnakeCell(i, context, cellSize) {
+        const cell = this.snake.body[i];
+        context.fillRect(cell.x * cellSize, cell.y * cellSize, cellSize, cellSize);
+        context.strokeRect(cell.x * cellSize, cell.y * cellSize, cellSize, cellSize);
+    }
+
+    setSnakeStyle(context) {
         context.fillStyle = this.snake.color;
         context.strokeStyle = '#000';
         context.lineWidth = 2;
@@ -246,15 +238,6 @@ class SnakeRender extends Renderer {
         context.shadowBlur = 10;
         context.shadowColor = 'rgba(0, 0, 0, 0.5)';
         context.strokeStyle = '#030';
-
-        for (let i = 0; i < this.snake.body.length; i++) {
-            const cell = this.snake.body[i];
-            context.fillRect(cell.x * cellSize, cell.y * cellSize, cellSize, cellSize);
-            context.strokeRect(cell.x * cellSize, cell.y * cellSize, cellSize, cellSize);
-        }
-
-        this.renderSnakeEyes(context);
-        context.restore();
     }
 
     /**
@@ -290,39 +273,33 @@ class SnakeRender extends Renderer {
     }
 
     rotateSnakeEyes(centerX, centerY, context, cellSize, eyeSize) {
-        switch (this.snake.currentDirection) {
-            case SnakeDirections.top:
-                TransformOperations.rotateOnPosition(
-                    centerX,
-                    centerY,
-                    0,
-                    context
-                );
-                break;
-            case SnakeDirections.right:
-                TransformOperations.rotateOnPosition(
-                    centerX + cellSize - eyeSize,
-                    centerY + cellSize,
-                    TransformOperations.toRad(270),
-                    context
-                );
-                break;
-            case SnakeDirections.bottom:
-                TransformOperations.rotateOnPosition(
-                    centerX + cellSize,
-                    centerY + cellSize,
-                    TransformOperations.toRad(180),
-                    context
-                );
-                break;
-            case SnakeDirections.left:
-                TransformOperations.rotateOnPosition(
-                    centerX + eyeSize,
-                    centerY,
-                    TransformOperations.toRad(90),
-                    context
-                );
-                break;
-        }
+        Direction.performByDirection(
+            () => TransformOperations.rotateOnPosition(
+                centerX,
+                centerY,
+                0,
+                context
+            ),
+            () => TransformOperations.rotateOnPosition(
+                centerX + cellSize - eyeSize,
+                centerY + cellSize,
+                TransformOperations.toRad(270),
+                context
+            ),
+            () => TransformOperations.rotateOnPosition(
+                centerX + cellSize,
+                centerY + cellSize,
+                TransformOperations.toRad(180),
+                context
+            ),
+            () => TransformOperations.rotateOnPosition(
+                centerX + eyeSize,
+                centerY,
+                TransformOperations.toRad(90),
+                context
+            ),
+            this.snake.currentDirection
+        );
     }
 }
+
